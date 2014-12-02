@@ -3,6 +3,7 @@
 namespace Ibw\JobeetBundle\Repository;
 
 use Doctrine\ORM\EntityRepository;
+// use Doctrine;
 
 /**
  * JobRepository
@@ -12,13 +13,17 @@ use Doctrine\ORM\EntityRepository;
  */
 class JobRepository extends EntityRepository
 {
- 	public function getActiveJobs($category_id = null, $max = null)
+ 	public function getActiveJobs($category_id = null, $max = null, $offset = null)
     {
         $qb = $this->createQueryBuilder('j')
                    ->where('j.expires_at > :date')
                    ->setParameter('date', date('Y-m-d H:i:s', time()))
                    ->orderBy('j.expires_at', 'DESC');
 
+        if($offset)
+        {
+            $qb->setFirstResult($offset);
+        }
         if ($category_id) {
             $qb->andWhere('j.category = :category_id')
                ->setParameter('category_id', $category_id);
@@ -31,4 +36,39 @@ class JobRepository extends EntityRepository
 
         return $query->getResult();
     }
+    
+    public function getActiveJob($id)
+    {
+        $qb = $this->createQueryBuilder('j')
+                   ->where('j.id=:id')
+                   ->setParameter('id', $id)
+                   ->andWhere('j.expires_at> :date')
+                   ->setParameter('date', date('Y-m-d H:i:s', time()))
+                   ->setMaxResults(1)
+                   ->getQuery();
+        try {
+            $job = $qb->getSingleResult();
+        } catch (\Doctrine\ORM\NoResultException $e) {
+            $job = null;
+        }
+        return $job;
+    }
+
+  public function countActiveJobs($catid = null)
+  {
+      $qb = $this->createQueryBuilder('j')
+                 ->select('count(j.id)')
+                 ->where('j.expires_at > :date')
+                 ->setParameter('date', date('Y-m-d H:i:s', time()));
+
+      if($catid)
+      {
+          $qb->andWhere('j.category=:catid')
+             ->setParameter('catid', $catid);
+      }
+
+      return $qb->getQuery()
+                ->getSingleScalarResult();
+  }
+
 }
