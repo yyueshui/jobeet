@@ -95,7 +95,7 @@ class Job
      */
     private $category;
 
-
+    public $file;
     /**
      * Get id
      *
@@ -516,4 +516,70 @@ class Job
         	$this->expires_at = new \DateTime(date('Y-m-d H:i:s', $now + 86400 * 30));
         }
     }
+    
+    public static function getTypes()
+    {
+    	return array('full-time'=>'Full time', 'part-time'=>'Part time', 'freelance'=> 'Freelance');
+    }
+    
+    public static function getTypesValue()
+    {
+    	return array_keys(self::getTypes());
+    }
+    
+    protected function getUploadDir()
+    {
+    	return 'uploads/jobs';
+    }
+    
+    protected function getUploadRootDir()
+    {
+    	return __DIR__.'../../../../web/'.$this->getUploadDir();
+    }
+    
+    public function getWebPath()
+    {
+    	return null === $this->logo ? null : $this->getUploadDir().'/'.$this->logo;
+    }
+    
+    public function getAbsolutePath()
+    {
+    	return null === $this->logo ? null : $this->getUploadRootDir().'/'.$this->logo;
+    }
+
+    /**
+     * @ORM\PrePersist
+     */
+    public function preUpload()
+    {
+        if(null !== $this->file)
+        {
+        	$this->logo = uniqid().'.'.$this->file->guessExtension();
+        }
+    }
+
+    /**
+     * @ORM\PostPersist
+     */
+    public function upload()
+    {
+        if(null === $this->file)
+        {
+        	return;
+        }
+        $this->file->move($this->getUploadRootDir(), $this->logo);
+        unset($this->file);
+    }
+
+    /**
+     * @ORM\PostRemove
+     */
+    public function removeUpload()
+    {
+        if(file_exists($this->file)) {
+        	unlink($this->getAbsolutePath().'/'.$this->file);
+        }
+    }
+
+    
 }
