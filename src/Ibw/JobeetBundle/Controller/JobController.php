@@ -53,7 +53,7 @@ class JobController extends Controller
             $em->flush();
 
             return $this->redirect($this->generateUrl('ibw_job_show', array(
-            		'id' => $entity->getId(),
+            		'token' => $entity->getToken(),
             		'location' => $entity->getLocationSlug(),
             		'company' => $entity->getCompanySlug(),
             		'position' => $entity->getPositionSlug()
@@ -134,12 +134,14 @@ class JobController extends Controller
     		throw $this->createNotFoundException('Unable to find Job entity.');
     	}
     
-    	$deleteForm = $this->createDeleteForm($token);
-    
-    	return $this->render('IbwJobeetBundle:Job:show.html.twig', array(
-    			'entity'      => $entity,
-    			'delete_form' => $deleteForm->createView(),
-    	));
+    	$deleteForm = $this->createDeleteForm($entity->getToken());
+	    $publishForm = $this->createPublishForm($entity->getToken());
+	 
+	    return $this->render('IbwJobeetBundle:Job:show.html.twig', array(
+	        'entity'      => $entity,
+	        'delete_form' => $deleteForm->createView(),
+	        'publish_form' => $publishForm->createView(),
+	    ));
     }
 
     /**
@@ -205,7 +207,12 @@ class JobController extends Controller
         if ($editForm->isValid()) {
             $em->flush();
 
-            return $this->redirect($this->generateUrl('ibw_job_edit', array('token' => $token)));
+            return $this->redirect($this->generateUrl('ibw_job_preview', array(
+	            'company' => $entity->getCompanySlug(),
+	            'location' => $entity->getLocationSlug(),
+	            'token' => $entity->getToken(), 
+	            'position' => $entity->getPositionSlug()
+	        )));
         }
 
         return $this->render('IbwJobeetBundle:Job:edit.html.twig', array(
@@ -254,5 +261,33 @@ class JobController extends Controller
             ->add('submit', 'submit', array('label' => 'Delete'))
             ->getForm()
         ;
+    }
+    
+    public function publishAction(Request $request, $token)
+    {
+    	$form = $this->createPublishForm($token);
+    	$form->bind($request);
+    
+    	if ($form->isValid()) {
+    		$em = $this->getDoctrine()->getManager();
+    		$entity = $em->getRepository('IbwJobeetBundle:Job')->findOneByToken($token);
+    
+    		if (!$entity) {
+    			throw $this->createNotFoundException('Unable to find Job entity.');
+    		}
+    
+    		$entity->publish();
+    		$em->persist($entity);
+    		$em->flush();
+    
+    		$this->get('session')->getFlashBag()->add('notice', 'Your job is now online for 30 days.');
+    	}
+    
+    	return $this->redirect($this->generateUrl('ibw_job_preview', array(
+    			'company' => $entity->getCompanySlug(),
+    			'location' => $entity->getLocationSlug(),
+    			'token' => $entity->getToken(),
+    			'position' => $entity->getPositionSlug()
+    	)));
     }
 }
